@@ -1,14 +1,13 @@
 from Raspbot_Lib import Raspbot
-import time, math
+import math
 
 
 bot = Raspbot()
 
-duration = 1
 speed = 100
 
 
-def move_forward(speed, duration):
+def move_forward(speed):
     l1, l2, r1, r2 = set_deflection(speed, 90)
     print(f'L1:{l1:>4}| ↑ |R1:{r1:<4}')
     print(f'L2:{l2:>4}|   |R2:{r2:<4}\n')
@@ -16,10 +15,8 @@ def move_forward(speed, duration):
     bot.Ctrl_Muto(1, l2 + 0)
     bot.Ctrl_Muto(2, r1 + 0)
     bot.Ctrl_Muto(3, r2 + 0)
-    time.sleep(duration)
-    stop_robot(bot)
 
-def move_backward(speed, duration):
+def move_backward(speed):
     l1, l2, r1, r2 = set_deflection(speed, 270)
     print(f'L1:{l1:>4}| ↓ |R1:{r1:<4}')
     print(f'L2:{l2:>4}|   |R2:{r2:<4}\n')
@@ -27,10 +24,8 @@ def move_backward(speed, duration):
     bot.Ctrl_Muto(1, l2 + 0)
     bot.Ctrl_Muto(2, r1 + 0)
     bot.Ctrl_Muto(3, r2 + 0)
-    time.sleep(duration)
-    stop_robot(bot)
 
-def move_left(speed, duration):
+def move_left(speed):
     l1, l2, r1, r2 = set_deflection(speed, 180)
     print(f'L1:{l1:>4}| ← |R1:{r1:<4}')
     print(f'L2:{l2:>4}|   |R2:{r2:<4}\n')
@@ -38,10 +33,8 @@ def move_left(speed, duration):
     bot.Ctrl_Muto(1, l2 + 0)
     bot.Ctrl_Muto(2, r1 + 0)
     bot.Ctrl_Muto(3, r2 + 0)
-    time.sleep(duration)
-    stop_robot(bot)
 
-def move_right(speed, duration):
+def move_right(speed):
     l1, l2, r1, r2 = set_deflection(speed, 0)
     print(f'L1:{l1:>4}| → |R1:{r1:<4}')
     print(f'L2:{l2:>4}|   |R2:{r2:<4}\n')
@@ -49,10 +42,8 @@ def move_right(speed, duration):
     bot.Ctrl_Muto(1, l2 + 0)
     bot.Ctrl_Muto(2, r1 + 0)
     bot.Ctrl_Muto(3, r2 + 0)
-    time.sleep(duration)
-    stop_robot(bot)
 
-def rotate_left(speed, duration):
+def rotate_left(speed):
     l1, l2, r1, r2 = set_deflection(speed, 180)
     print(f'L1:{l1:>4}| ↖ |R1:{r1:<4}')
     print(f'L2:{-l2:>4}|   |R2:{abs(r2):<4}\n')
@@ -60,10 +51,8 @@ def rotate_left(speed, duration):
     bot.Ctrl_Muto(1, -l2 + 0)
     bot.Ctrl_Muto(2, r1 + 0)
     bot.Ctrl_Muto(3, abs(r2) + 0)
-    time.sleep(duration)
-    stop_robot(bot)
 
-def rotate_right(speed, duration):
+def rotate_right(speed):
     l1, l2, r1, r2 = set_deflection(speed, 0)
     print(f'L1:{l1:>4}| ↗ |R1:{r1:<4}')
     print(f'L2:{abs(l2):>4}|   |R2:{-r2:<4}\n')
@@ -71,10 +60,8 @@ def rotate_right(speed, duration):
     bot.Ctrl_Muto(1, abs(l2) + 0)
     bot.Ctrl_Muto(2, r1 + 0)
     bot.Ctrl_Muto(3, -r2 + 0)
-    time.sleep(duration)
-    stop_robot(bot)
 
-def move_diagonal_left_front(speed, duration):
+def move_diagonal_left_front(speed):
     l1, l2, r1, r2 = set_deflection(speed, 135)
     print(f'L1:{l1:>4}| ↖ |R1:{r1:<4}')
     print(f'L2:{l2:>4}|   |R2:{r2:<4}\n')
@@ -82,10 +69,8 @@ def move_diagonal_left_front(speed, duration):
     bot.Ctrl_Muto(1, l2 + 0)
     bot.Ctrl_Muto(2, r1 + 0)
     bot.Ctrl_Muto(3, r2 + 0)
-    time.sleep(duration)
-    stop_robot(bot)
 
-def move_diagonal_left_back(speed, duration):
+def move_diagonal_left_back(speed):
     l1, l2, r1, r2 = set_deflection(speed, 225)
     print(f'L1:{l1:>4}| ↙ |R1:{r1:<4}')
     print(f'L2:{l2:>4}|   |R2:{r2:<4}\n')
@@ -93,10 +78,8 @@ def move_diagonal_left_back(speed, duration):
     bot.Ctrl_Muto(1, l2 + 0)
     bot.Ctrl_Muto(2, r1 + 0)
     bot.Ctrl_Muto(3, r2 + 0)
-    time.sleep(duration)
-    stop_robot(bot)
 
-def move_diagonal_right_front(speed, duration):
+def move_diagonal_right_front(speed):
     l1, l2, r1, r2 = set_deflection(speed, 45)
     print(f'L1:{l1:>4}| ↗ |R1:{r1:<4}')
     print(f'L2:{l2:>4}|   |R2:{r2:<4}\n')
@@ -104,10 +87,8 @@ def move_diagonal_right_front(speed, duration):
     bot.Ctrl_Muto(1, l2 + 0)
     bot.Ctrl_Muto(2, r1 + 0)
     bot.Ctrl_Muto(3, r2 + 0)
-    time.sleep(duration)
-    stop_robot(bot)
 
-def move_diagonal_right_back(speed, duration):
+def move_diagonal_right_back(speed):
     l1, l2, r1, r2 = set_deflection(speed, 315)
     print(f'L1:={l1:>4}| ↘ |R1:={r1:<4}')
     print(f'L2:={l2:>4}|   |R2:={r2:<4}\n')
@@ -115,10 +96,8 @@ def move_diagonal_right_back(speed, duration):
     bot.Ctrl_Muto(1, l2 + 0)
     bot.Ctrl_Muto(2, r1 + 0)
     bot.Ctrl_Muto(3, r2 + 0)
-    time.sleep(duration)
-    stop_robot(bot)
 
-def stop_robot(bot):
+def stop_robot():
 
     bot.Ctrl_Car(0, 0, 0)
     bot.Ctrl_Car(1, 0, 0)

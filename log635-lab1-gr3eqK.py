@@ -9,11 +9,11 @@ from Raspbot_Lib import Raspbot
 from McLumk_Wheel_Sports import move_forward, rotate_left, rotate_right, stop_robot
 
 
-NEAR_DISTANCE = 200
+NEAR_DISTANCE = 150
 FAR_DISTANCE = 425
 OBSTACLE_POLL_INTERVAL = 0.1
 
-motion_speed = 30
+motion_speed = 33
 
 bot = Raspbot()
 
@@ -26,7 +26,9 @@ def _init_systems():
 def _close_systems():
     """Close the robot's systems."""
     bot.Ctrl_Ulatist_Switch(0)
-    stop_robot(bot)
+    bot.Ctrl_BEEP_Switch(0)
+    bot.Ctrl_WQ2812_ALL(0,6)
+    stop_robot()
     time.sleep(0.1)
 
 
@@ -73,9 +75,9 @@ def blink_leds(times=3, interval=0.2):
         interval: Time in seconds between LED on and off states.
     """
     for _ in range(times):
-        bot.Ctrl_WQ2812_ALL(1)
+        bot.Ctrl_WQ2812_ALL(1,6)
         time.sleep(interval)
-        bot.Ctrl_WQ2812_ALL(0)
+        bot.Ctrl_WQ2812_ALL(0,6)
         time.sleep(interval)
 
 
@@ -162,7 +164,7 @@ def take_photos(count=1, interval=0.5, directory="photos-eqK"):
 
 
 def follow_black_line(motion_speed: int = 15):
-    """Read the IR sensors and make one short line-following movement.
+    """Read the IR sensors and update the ongoing line-following movement.
 
     Register 0x0a contains four active-low sensor bits. X2, X1, X3, and X4
     correspond to the outer-left, inner-left, inner-right, and outer-right
@@ -194,36 +196,36 @@ def follow_black_line(motion_speed: int = 15):
         line_l1 == line_l2 == line_r1 == line_r2 == 0
     ):  # All sensors on black, T junction for start
         decision = "1"
-        movement, speed, duration = move_forward, motion_speed, 0.01
+        movement, speed = move_forward, motion_speed
     elif (
         line_l2 == 0 or line_l1 == 0
     ) and line_r2 == 0:  # Left sensors on black, right sensor on white, turn right
         decision = "2"
-        movement, speed, duration = rotate_right, int(motion_speed * 1.5), 0.05
+        movement, speed = rotate_right, int(motion_speed * 1.8)
     elif line_l1 == 0 and (
         line_r2 == 0 or line_r1 == 0
     ):  # Left sensor on white, right sensors on black, turn left
         decision = "3"
-        movement, speed, duration = rotate_left, int(motion_speed * 1.5), 0.05
+        movement, speed = rotate_left, int(motion_speed * 1.8)
     elif line_l1 == 0:  # Left outer sensor on black, turn left
         decision = "4"
-        movement, speed, duration = rotate_left, motion_speed, 0.02
+        movement, speed = rotate_left, motion_speed
     elif line_r2 == 0:  # Right outer sensor on black, turn right
         decision = "5"
-        movement, speed, duration = rotate_right, motion_speed, 0.01
+        movement, speed = rotate_right, motion_speed
     elif (
         line_l2 == 0 and line_r1 == 1
     ):  # Left inner sensor on black, right inner sensor on white, rotate left
         decision = "6"
-        movement, speed, duration = rotate_left, motion_speed, 0.01
+        movement, speed = rotate_left, motion_speed
     elif (
         line_l2 == 1 and line_r1 == 0
     ):  # Left inner sensor on white, right inner sensor on black, rotate right
         decision = "7"
-        movement, speed, duration = rotate_right, motion_speed, 0.01
+        movement, speed = rotate_right, motion_speed
     elif line_l2 == 0 and line_r1 == 0:  # Both inner sensors on black, move forward
         decision = "8"
-        movement, speed, duration = move_forward, motion_speed, 0.01
+        movement, speed = move_forward, motion_speed
     else:
         decision = "Line lost"
         movement = None
@@ -231,9 +233,9 @@ def follow_black_line(motion_speed: int = 15):
     print(decision)
     print(line_l1, line_l2, line_r1, line_r2)
     if movement is None:
-        stop_robot(bot)
+        stop_robot()
     else:
-        movement(speed, duration)
+        movement(speed)
     time.sleep(0.01)
 
 def main():
@@ -246,7 +248,7 @@ def main():
             if distance > NEAR_DISTANCE:
                 continue
 
-            stop_robot(bot)
+            stop_robot()
             sound_buzzer(times=2)
 
             try:
