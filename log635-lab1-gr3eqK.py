@@ -12,8 +12,9 @@ from McLumk_Wheel_Sports import move_forward, rotate_left, rotate_right, stop_ro
 NEAR_DISTANCE = 150
 FAR_DISTANCE = 425
 OBSTACLE_POLL_INTERVAL = 0.1
+LAST_MOVE = "forward"
 
-motion_speed = 33
+motion_speed = 5
 
 bot = Raspbot()
 
@@ -21,6 +22,7 @@ bot = Raspbot()
 def _init_systems():
     """Initialize the robot's systems."""
     bot.Ctrl_Ulatist_Switch(1) # Ultrasonic sensor
+    bot.Ctrl_Servo(2, 0)
     time.sleep(0.1)
 
 def _close_systems():
@@ -162,8 +164,8 @@ def take_photos(count=1, interval=0.5, directory="photos-eqK"):
 
     return files
 
-
 def follow_black_line(motion_speed: int = 15):
+    global LAST_MOVE
     """Read the IR sensors and update the ongoing line-following movement.
 
     Register 0x0a contains four active-low sensor bits. X2, X1, X3, and X4
@@ -196,41 +198,54 @@ def follow_black_line(motion_speed: int = 15):
         line_l1 == line_l2 == line_r1 == line_r2 == 0
     ):  # All sensors on black, T junction for start
         decision = "1"
+        LAST_MOVE = "forward"
         movement, speed = move_forward, motion_speed
     elif (
         line_l2 == 0 or line_l1 == 0
     ) and line_r2 == 0:  # Left sensors on black, right sensor on white, turn right
         decision = "2"
-        movement, speed = rotate_right, int(motion_speed * 1.8)
+        LAST_MOVE = "right"
+        movement, speed = rotate_right, int(motion_speed * 6.8)
     elif line_l1 == 0 and (
         line_r2 == 0 or line_r1 == 0
     ):  # Left sensor on white, right sensors on black, turn left
         decision = "3"
-        movement, speed = rotate_left, int(motion_speed * 1.8)
+        LAST_MOVE = "left"
+        movement, speed = rotate_left, int(motion_speed * 6.8)
     elif line_l1 == 0:  # Left outer sensor on black, turn left
         decision = "4"
+        LAST_MOVE = "left"
         movement, speed = rotate_left, motion_speed
     elif line_r2 == 0:  # Right outer sensor on black, turn right
         decision = "5"
+        LAST_MOVE = "right"
         movement, speed = rotate_right, motion_speed
     elif (
         line_l2 == 0 and line_r1 == 1
     ):  # Left inner sensor on black, right inner sensor on white, rotate left
         decision = "6"
-        movement, speed = rotate_left, motion_speed
+        LAST_MOVE = "left"
+        movement, speed = rotate_left, int(motion_speed * 0.5)
     elif (
         line_l2 == 1 and line_r1 == 0
     ):  # Left inner sensor on white, right inner sensor on black, rotate right
         decision = "7"
-        movement, speed = rotate_right, motion_speed
+        LAST_MOVE = "right"
+        movement, speed = rotate_right, int(motion_speed * 0.5)
     elif line_l2 == 0 and line_r1 == 0:  # Both inner sensors on black, move forward
         decision = "8"
-        movement, speed = move_forward, motion_speed
+        movement, speed = move_forward, int(motion_speed * 0.5)
     else:
         decision = "Line lost"
-        movement = None
+        if LAST_MOVE == "left":
+            movement, speed = rotate_left, int(motion_speed * 0.5)
+        elif LAST_MOVE == "right":
+            movement, speed = rotate_right, int(motion_speed * 0.5)
+        else:
+            movement = None
 
     print(decision)
+    print(LAST_MOVE)
     print(line_l1, line_l2, line_r1, line_r2)
     if movement is None:
         stop_robot()
@@ -253,6 +268,7 @@ def main():
 
             try:
                 photos = take_photos(count=1)
+                time.sleep(1)
                 if not photos:
                     print("Warning: obstacle photo could not be captured.")
             except RuntimeError as error:
