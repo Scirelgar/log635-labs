@@ -13,8 +13,6 @@ NEAR_DISTANCE = 200
 FAR_DISTANCE = 425
 OBSTACLE_POLL_INTERVAL = 0.1
 
-OUT_OF_LAB = True
-
 motion_speed = 30
 
 bot = Raspbot()
@@ -238,32 +236,35 @@ def follow_black_line(motion_speed: int = 15):
         movement(speed, duration)
     time.sleep(0.01)
 
+def main():
+    try:
+        _init_systems()
+        while True:
+            follow_black_line(motion_speed)
 
-try:
-    _init_systems()
-    while True:
-        follow_black_line(motion_speed)
+            distance = read_ultrasonic_distance()
+            if distance > NEAR_DISTANCE:
+                continue
 
-        distance = read_ultrasonic_distance()
-        if distance > NEAR_DISTANCE:
-            continue
+            stop_robot(bot)
+            sound_buzzer(times=2)
 
-        stop_robot(bot)
-        sound_buzzer(times=2)
+            try:
+                photos = take_photos(count=1)
+                if not photos:
+                    print("Warning: obstacle photo could not be captured.")
+            except RuntimeError as error:
+                print(f"Warning: obstacle photo could not be captured: {error}")
 
-        try:
-            photos = take_photos(count=1)
-            if not photos:
-                print("Warning: obstacle photo could not be captured.")
-        except RuntimeError as error:
-            print(f"Warning: obstacle photo could not be captured: {error}")
+            blink_leds(times=2)
 
-        blink_leds(times=2)
+            while read_ultrasonic_distance() < FAR_DISTANCE:
+                sound_buzzer(times=3, duration=0.2, interval=0.2)
+                time.sleep(OBSTACLE_POLL_INTERVAL)
+    except KeyboardInterrupt:
+        print("Ending")
+    finally:
+        _close_systems()
 
-        while read_ultrasonic_distance() < FAR_DISTANCE:
-            sound_buzzer(times=3, duration=0.2, interval=0.2)
-            time.sleep(OBSTACLE_POLL_INTERVAL)
-except KeyboardInterrupt:
-    print("Ending")
-finally:
-    _close_systems()
+if __name__ == "__main__":
+    main()
