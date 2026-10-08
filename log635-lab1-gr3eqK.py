@@ -6,22 +6,63 @@ from datetime import datetime
 import cv2
 
 from Raspbot_Lib import Raspbot
-from McLumk_Wheel_Sports import move_forward
+from McLumk_Wheel_Sports import move_forward, rotate_left, rotate_right, stop_robot
 
 
 NEAR_DISTANCE = 200
 FAR_DISTANCE = 425
+OBSTACLE_POLL_INTERVAL = 0.1
 
 OUT_OF_LAB = True
 
-motion_speed =30
+motion_speed = 30
 
 bot = Raspbot()
 
+
 def _init_systems():
-    # Ultrasonic sensor
+    """Initialize the robot's systems."""
     bot.Ctrl_Ulatist_Switch(1)
     time.sleep(0.1)
+
+def _close_systems():
+    """Close the robot's systems."""
+    bot.Ctrl_Ulatist_Switch(0)
+    stop_robot(bot)
+    time.sleep(0.1)
+
+
+def read_ultrasonic_distance():
+    """Read the distance reported by the ultrasonic sensor.
+
+    Combine the high byte from register ``0x1B`` and the low byte from
+    register ``0x1A``. For example, ``read_ultrasonic_distance()`` returns
+    the current obstacle distance in millimetres.
+
+    Returns:
+        The measured distance in millimetres.
+    """
+    distance_high = int(bot.read_data_array(0x1B, 1)[0])
+    distance_low = int(bot.read_data_array(0x1A, 1)[0])
+    return (distance_high << 8) | distance_low
+
+
+def sound_buzzer(times=1, duration=0.1, interval=0.1):
+    """Sound the buzzer for a given duration in seconds."""
+    for _ in range(times):
+        bot.Ctrl_Buzzer_Switch(1)
+        time.sleep(duration)
+        bot.Ctrl_Buzzer_Switch(0)
+        time.sleep(interval)
+
+
+def blink_leds(times=3, interval=0.2):
+    """Blink the LEDs for a given number of times."""
+    for _ in range(times):
+        bot.Ctrl_Led_Switch(1)
+        time.sleep(interval)
+        bot.Ctrl_Led_Switch(0)
+        time.sleep(interval)
 
 
 def open_camera():
@@ -83,9 +124,6 @@ def take_photos(count=1, interval=0.5, directory="photos-eqK"):
         camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
         camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
-        for _ in range(5):
-            camera.read()
-
         for index in range(count):
             ok, frame = camera.read()
             if not ok or frame is None:
@@ -109,127 +147,107 @@ def take_photos(count=1, interval=0.5, directory="photos-eqK"):
     return files
 
 
-def bot_follow_black_line(motion_speed:int = 15):
-    """"Follow a black line using the IR sensors.
+def follow_black_line(motion_speed: int = 15):
+    """Read the IR sensors and make one short line-following movement.
 
-    This funciton reads the data from 4 IR sensors computes the movement the bot should do.
-    The sensors data is read from data array at address 0x0a. The data is a single byte where each bit represents the state of a sensor.
-    The sensors are arranged as follows:
-    X2 X1 X3 X4
-    |  |  |  |
-    L1 L2 R1 R2
-    L1: Left outermost sensor
-    L2: Left inner sensor
-    R1: Right inner sensor
-    R2: Right outermost sensor
-    
-    
+    Register 0x0a contains four active-low sensor bits. X2, X1, X3, and X4
+    correspond to the outer-left, inner-left, inner-right, and outer-right
+    sensors, respectively.
+    The mapping for the four sensors is as follows:\n
+    X2 X1 X3 X4\n
+    |  |  |  |\n
+    L1 L2 R1 R2\n
+    L1: Left outermost sensor\n
+    L2: Left inner sensor\n
+    R1: Right inner sensor\n
+    R2: Right outermost sensor\n
+
+    Example: ```follow_black_line(30)``` reads and responds once.
+
+    Args:
+        motion_speed: Base speed sent to the movement helpers.
     """
+    if not isinstance(motion_speed, int) or motion_speed < 0 or motion_speed > 100:
+        raise ValueError("motion_speed must be an integer between 0 and 100.")
+    track = int(bot.read_data_array(0x0A, 1)[0])
+    line_l1 = (track >> 2) & 0x01
+    line_l2 = (track >> 3) & 0x01
+    line_r1 = (track >> 1) & 0x01
+    line_r2 = track & 0x01
 
-    
-    track_data = bot.read_data_array(0x0a, 1)
-    track = int(track_data[0])
+    # Analyze the sensor readings and determine the appropriate action
+    if (
+        line_l1 == line_l2 == line_r1 == line_r2 == 0
+    ):  # All sensors on black, T junction for start
+        decision = "1"
+        movement, speed, duration = move_forward, motion_speed, 0.01
+    elif (
+        line_l2 == 0 or line_l1 == 0
+    ) and line_r2 == 0:  # Left sensors on black, right sensor on white, turn right
+        decision = "2"
+        movement, speed, duration = rotate_right, int(motion_speed * 1.5), 0.05
+    elif line_l1 == 0 and (
+        line_r2 == 0 or line_r1 == 0
+    ):  # Left sensor on white, right sensors on black, turn left
+        decision = "3"
+        movement, speed, duration = rotate_left, int(motion_speed * 1.5), 0.05
+    elif line_l1 == 0:  # Left outer sensor on black, turn left
+        decision = "4"
+        movement, speed, duration = rotate_left, motion_speed, 0.02
+    elif line_r2 == 0:  # Right outer sensor on black, turn right
+        decision = "5"
+        movement, speed, duration = rotate_right, motion_speed, 0.01
+    elif (
+        line_l2 == 0 and line_r1 == 1
+    ):  # Left inner sensor on black, right inner sensor on white, rotate left
+        decision = "6"
+        movement, speed, duration = rotate_left, motion_speed, 0.01
+    elif (
+        line_l2 == 1 and line_r1 == 0
+    ):  # Left inner sensor on white, right inner sensor on black, rotate right
+        decision = "7"
+        movement, speed, duration = rotate_right, motion_speed, 0.01
+    elif line_l2 == 0 and line_r1 == 0:  # Both inner sensors on black, move forward
+        decision = "8"
+        movement, speed, duration = move_forward, motion_speed, 0.01
+    else:
+        decision = "Line lost"
+        movement = None
 
+    print(decision)
+    print(line_l1, line_l2, line_r1, line_r2)
+    if movement is None:
+        stop_robot(bot)
+    else:
+        movement(speed, duration)
+    time.sleep(0.01)
 
-    x1 = (track >> 3) & 0x01  
-    x2 = (track >> 2) & 0x01  
-    x3 = (track >> 1) & 0x01  
-    x4 = track & 0x01       
-
-    lineL1=x2
-    lineL2=x1
-    lineR1=x3
-    lineR2=x4
-
-    if lineL1 == 0 and lineL2 == 0 and lineR1 == 0 and lineR2 == 0:  # 都是黑色, 加速前进 All black, speed up
-        print("1")
-        print(lineL1,lineL2,lineR1,lineR2)
-        move_forward(int(motion_speed))
-
-    
 
 try:
-    bot.Ctrl_Ulatist_Switch(1)
-    time.sleep(0.1)
-
+    _init_systems()
     while True:
-        # 从I2C读取巡线传感器数据 Read line sensor data from I2C
-        track_data = bot.read_data_array(0x0a, 1)
-        track = int(track_data[0])
+        follow_black_line(motion_speed)
 
-        # 解析巡线传感器的状态 Analyze the status of the line patrol sensor
-        x1 = (track >> 3) & 0x01  
-        x2 = (track >> 2) & 0x01  
-        x3 = (track >> 1) & 0x01  
-        x4 = track & 0x01       
-        """
-        X2 X1 X3 X4
-        |  |  |  |
-        L1 L2 R1 R2
-        """
-        lineL1=x2
-        lineL2=x1
-        lineR1=x3
-        lineR2=x4
+        distance = read_ultrasonic_distance()
+        if distance > NEAR_DISTANCE:
+            continue
 
+        stop_robot(bot)
+        sound_buzzer(times=2)
 
-        dis = _dist_compute()
+        try:
+            photos = take_photos(count=1)
+            if not photos:
+                print("Warning: obstacle photo could not be captured.")
+        except RuntimeError as error:
+            print(f"Warning: obstacle photo could not be captured: {error}")
 
+        blink_leds(times=2)
 
-
-        if lineL1 == 0 and lineL2 == 0 and lineR1 == 0 and lineR2 == 0:  # 都是黑色, 加速前进 All black, speed up
-            print("1")
-            print(lineL1,lineL2,lineR1,lineR2)
-            move_forward(int(motion_speed))
-        elif NEAR_DISTANCE <= dis <= FAR_DISTANCE:
-            print(f"Obstacle is at medium distance, distance: {dis} mm")
-            stop_robot()
-            time.sleep(2)
-            bot.Ctrl_BEEP_Switch(1)  #蜂鸣器开  Buzzer on
-            bot.Ctrl_BEEP_Switch(0)  #蜂鸣器关 Buzzer off
-
-
-        elif( (lineL2 == 0 or lineL1 == 0) and lineR2 == 0):#右锐角：右大弯,0表示检测到黑线 Right acute angle: right big bend, 0 means black line is detected
-            print("2")
-            print(lineL1,lineL2,lineR1,lineR2)
-            rotate_right(motion_speed)
-            time.sleep(0.05)
-        elif lineL1 == 0 and (lineR2 == 0 or lineR1 == 0):  # 左锐角或左大弯 Left sharp angle or left sharp bend
-            print("3")
-            print(lineL1,lineL2,lineR1,lineR2) 
-            rotate_left(int(motion_speed*1.5))  # 左急转弯 Sharp left turn
-            time.sleep(0.15)
-        elif lineL1 == 0:  # 左最外侧检测 Left outermost detection
-            print("4")
-            print(lineL1,lineL2,lineR1,lineR2)
-            rotate_left(motion_speed)  # 左急转弯 Sharp left turn
-            time.sleep(0.02)
-        elif lineR2 == 0:  # 右最外侧检测 Right outermost detection
-            print("5")
-            print(lineL1,lineL2,lineR1,lineR2)
-            rotate_right(motion_speed)
-            time.sleep(0.01)
-        elif lineL2 == 0 and lineR1 == 1:  # 中间黑线上的传感器微调车左转 The sensor on the middle black line fine-tunes the car to turn left
-            print("6")
-            print(lineL1,lineL2,lineR1,lineR2)
-            rotate_left(int(motion_speed))  # 左转 Turn left
-        elif lineL2 == 1 and lineR1 == 0:  # 中间黑线上的传感器微调车右转 The sensor on the middle black line fine-tunes the car to turn right
-            print("7")
-            print(lineL1,lineL2,lineR1,lineR2) 
-            rotate_right(int(motion_speed)) #右转 Turn right
-        elif lineL2 == 0 and lineR1 == 0:  # 都是黑色, 加速前进 All black, speed up
-            print("8")
-            print(lineL1,lineL2,lineR1,lineR2)
-            move_forward(motion_speed)
-
-        
-
-        # 等待一段时间再进行下一次检测 Wait for a while before the next test
-        time.sleep(0.01)
-
+        while read_ultrasonic_distance() < FAR_DISTANCE:
+            sound_buzzer(times=3, duration=0.2, interval=0.2)
+            time.sleep(OBSTACLE_POLL_INTERVAL)
 except KeyboardInterrupt:
-    # 当用户中断程序时，确保所有电机停止 Ensure that all motors stop when the user interrupts the program
-    bot.Ctrl_Ulatist_Switch(0)
-    time.sleep(0.1)
-    stop_robot()
     print("Ending")
+finally:
+    _close_systems()
