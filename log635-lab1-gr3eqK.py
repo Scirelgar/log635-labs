@@ -9,11 +9,11 @@ from Raspbot_Lib import Raspbot
 from McLumk_Wheel_Sports import move_forward, rotate_left, rotate_right, stop_robot
 
 
-NEAR_DISTANCE = 200
-FAR_DISTANCE = 425
+NEAR_DISTANCE = 150
+FAR_DISTANCE = 300
 OBSTACLE_POLL_INTERVAL = 0.5
 
-motion_speed = 30
+motion_speed = 32
 
 bot = Raspbot()
 
@@ -26,6 +26,8 @@ def _init_systems():
 def _close_systems():
     """Close the robot's systems."""
     bot.Ctrl_Ulatist_Switch(0)
+    bot.Ctrl_BEEP_Switch(0)
+    bot.Ctrl_WQ2812_ALL(0,6)
     stop_robot(bot)
     time.sleep(0.1)
 
@@ -194,23 +196,23 @@ def follow_black_line(motion_speed: int = 15):
         line_l1 == line_l2 == line_r1 == line_r2 == 0
     ):  # All sensors on black, T junction for start
         decision = "1"
-        movement, speed, duration = move_forward, motion_speed, 0.03
+        movement, speed, duration = move_forward, motion_speed, 0.01
     elif (
         line_l2 == 0 or line_l1 == 0
     ) and line_r2 == 0:  # Left sensors on black, right sensor on white, turn right
         decision = "2"
-        movement, speed, duration = rotate_right, int(motion_speed * 1.5), 0.05
+        movement, speed, duration = rotate_right, int(motion_speed * 1.7), 0.05
     elif line_l1 == 0 and (
         line_r2 == 0 or line_r1 == 0
     ):  # Left sensor on white, right sensors on black, turn left
         decision = "3"
-        movement, speed, duration = rotate_left, int(motion_speed * 1.5), 0.05
+        movement, speed, duration = rotate_left, int(motion_speed * 1.7), 0.05
     elif line_l1 == 0:  # Left outer sensor on black, turn left
         decision = "4"
-        movement, speed, duration = rotate_left, motion_speed, 0.02
+        movement, speed, duration = rotate_left, motion_speed, 0.03
     elif line_r2 == 0:  # Right outer sensor on black, turn right
         decision = "5"
-        movement, speed, duration = rotate_right, motion_speed, 0.02
+        movement, speed, duration = rotate_right, motion_speed, 0.03
     elif (
         line_l2 == 0 and line_r1 == 1
     ):  # Left inner sensor on black, right inner sensor on white, rotate left
