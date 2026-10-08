@@ -22,7 +22,7 @@ bot = Raspbot()
 
 def _init_systems():
     """Initialize the robot's systems."""
-    bot.Ctrl_Ulatist_Switch(1)
+    bot.Ctrl_Ulatist_Switch(1) # Ultrasonic sensor
     time.sleep(0.1)
 
 def _close_systems():
@@ -48,20 +48,36 @@ def read_ultrasonic_distance():
 
 
 def sound_buzzer(times=1, duration=0.1, interval=0.1):
-    """Sound the buzzer for a given duration in seconds."""
+    """Sound the buzzer for a given duration in seconds.
+    
+    Uses the bot.Ctrl_BEEP_Switch attribute to control the buzzer state.
+
+    Args:
+        times: Number of times to sound the buzzer.
+        duration: Time in seconds to keep the buzzer on.
+        interval: Time in seconds between buzzer on and off states.
+    """
     for _ in range(times):
-        bot.Ctrl_Buzzer_Switch(1)
+        bot.Ctrl_BEEP_Switch(1)
         time.sleep(duration)
-        bot.Ctrl_Buzzer_Switch(0)
+        bot.Ctrl_BEEP_Switch(0)
         time.sleep(interval)
 
 
 def blink_leds(times=3, interval=0.2):
-    """Blink the LEDs for a given number of times."""
+    """Blink the LEDs for a given number of times.
+    
+    Uses the bot.Ctrl_WQ2812_ALL attribute to control the
+    LED state.
+
+    Args:
+        times: Number of times to blink the LEDs.
+        interval: Time in seconds between LED on and off states.
+    """
     for _ in range(times):
-        bot.Ctrl_Led_Switch(1)
+        bot.Ctrl_WQ2812_ALL(1)
         time.sleep(interval)
-        bot.Ctrl_Led_Switch(0)
+        bot.Ctrl_WQ2812_ALL(0)
         time.sleep(interval)
 
 
