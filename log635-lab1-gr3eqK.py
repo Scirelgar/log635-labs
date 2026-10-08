@@ -1,13 +1,16 @@
-import sys
-from time import time
+import glob
+import os
+import time
+from datetime import datetime
+
+import cv2
 
 from Raspbot_Lib import Raspbot
-#导入麦克纳姆小车驱动库 Import Mecanum Car Driver Library
-# from McLumk_Wheel_Sports import *
+from McLumk_Wheel_Sports import move_forward
 
-# Constants related to the ultrasonic sensor
-NEAR_DISTANCE = 200  # Define near distance threshold (millimeters)
-FAR_DISTANCE = 425   # Define far distance threshold (millimeters)
+
+NEAR_DISTANCE = 200
+FAR_DISTANCE = 425
 
 OUT_OF_LAB = True
 
@@ -20,16 +23,91 @@ def _init_systems():
     bot.Ctrl_Ulatist_Switch(1)
     time.sleep(0.1)
 
-def _dist_compute():
+
+def open_camera():
+    """Open the first video device that produces a frame.
+
+    Probe numbered Linux video devices in order because Raspberry Pi 5 can
+    expose processing devices alongside the USB camera. For example,
+    ``camera, device = open_camera()`` opens a usable capture device.
+
+    Returns:
+        A ``(camera, device_path)`` pair, or ``(None, None)`` if no device
+        can provide a frame. The caller must release a returned camera.
     """
+    devices = [
+        path for path in glob.glob("/dev/video*") if path[len("/dev/video") :].isdigit()
+    ]
+    devices.sort(key=lambda path: int(path[len("/dev/video") :]))
+    for device in devices:
+        camera = cv2.VideoCapture(device, cv2.CAP_V4L2)
+        usable = False
+        try:
+            if camera.isOpened():
+                ok, frame = camera.read()
+                usable = ok and frame is not None
+                if usable:
+                    return camera, device
+        finally:
+            if not usable:
+                camera.release()
+    return None, None
 
+
+def take_photos(count=1, interval=0.5, directory="photos-eqK"):
+    """Capture JPEG photos with the first available USB camera.
+
+    Save photos in a local directory and return only successfully written
+    files. For example, ``take_photos(count=3, interval=1)`` captures three
+    photos one second apart.
+
+    Args:
+        count: Number of photos to attempt.
+        interval: Seconds to wait between captures.
+        directory: Destination directory, created if needed.
+
+    Returns:
+        A list of saved JPEG file paths; empty if no camera is available.
+
+    Raises:
+        RuntimeError: No usable camera is found.
     """
-    diss_H =bot.read_data_array(0x1b,1)[0]
-    diss_L =bot.read_data_array(0x1a,1)[0]
+    camera, device = open_camera()
+    if camera is None:
+        raise RuntimeError("No usable camera found.")
 
-    return diss_H << 8 | diss_L
+    print(f"Camera: {device}")
+    files = []
+    try:
+        os.makedirs(directory, exist_ok=True)
+        camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
-    
+        for _ in range(5):
+            camera.read()
+
+        for index in range(count):
+            ok, frame = camera.read()
+            if not ok or frame is None:
+                print(f"Error: photo {index + 1} could not be captured.")
+            else:
+                name = (
+                    datetime.now().strftime("%Y%m%d_%H%M%S_%f") + f"_{index + 1:03}.jpg"
+                )
+                path = os.path.join(directory, name)
+                if cv2.imwrite(path, frame):
+                    files.append(path)
+                    print(f"Photo saved: {path}")
+                else:
+                    print(f"Error: photo {index + 1} could not be saved to {path}.")
+
+            if index < count - 1:
+                time.sleep(interval)
+    finally:
+        camera.release()
+
+    return files
+
 
 def bot_follow_black_line(motion_speed:int = 15):
     """"Follow a black line using the IR sensors.
