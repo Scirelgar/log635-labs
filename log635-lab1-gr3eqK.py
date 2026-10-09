@@ -10,11 +10,10 @@ from McLumk_Wheel_Sports import move_forward, rotate_left, rotate_right, stop_ro
 
 
 NEAR_DISTANCE = 150
-FAR_DISTANCE = 425
-OBSTACLE_POLL_INTERVAL = 0.1
-LAST_MOVE = "forward"
+FAR_DISTANCE = 300
+OBSTACLE_POLL_INTERVAL = 0.5
 
-motion_speed = 5
+motion_speed = 32
 
 bot = Raspbot()
 
@@ -30,7 +29,7 @@ def _close_systems():
     bot.Ctrl_Ulatist_Switch(0)
     bot.Ctrl_BEEP_Switch(0)
     bot.Ctrl_WQ2812_ALL(0,6)
-    stop_robot()
+    stop_robot(bot)
     time.sleep(0.1)
 
 
@@ -77,9 +76,9 @@ def blink_leds(times=3, interval=0.2):
         interval: Time in seconds between LED on and off states.
     """
     for _ in range(times):
-        bot.Ctrl_WQ2812_ALL(1,6)
+        bot.Ctrl_WQ2812_ALL(1, 6)
         time.sleep(interval)
-        bot.Ctrl_WQ2812_ALL(0,6)
+        bot.Ctrl_WQ2812_ALL(0, 6)
         time.sleep(interval)
 
 
@@ -204,37 +203,31 @@ def follow_black_line(motion_speed: int = 15):
         line_l2 == 0 or line_l1 == 0
     ) and line_r2 == 0:  # Left sensors on black, right sensor on white, turn right
         decision = "2"
-        LAST_MOVE = "right"
-        movement, speed = rotate_right, int(motion_speed * 6.8)
+        movement, speed, duration = rotate_right, int(motion_speed * 1.7), 0.05
     elif line_l1 == 0 and (
         line_r2 == 0 or line_r1 == 0
     ):  # Left sensor on white, right sensors on black, turn left
         decision = "3"
-        LAST_MOVE = "left"
-        movement, speed = rotate_left, int(motion_speed * 6.8)
+        movement, speed, duration = rotate_left, int(motion_speed * 1.7), 0.05
     elif line_l1 == 0:  # Left outer sensor on black, turn left
         decision = "4"
-        LAST_MOVE = "left"
-        movement, speed = rotate_left, motion_speed
+        movement, speed, duration = rotate_left, motion_speed, 0.03
     elif line_r2 == 0:  # Right outer sensor on black, turn right
         decision = "5"
-        LAST_MOVE = "right"
-        movement, speed = rotate_right, motion_speed
+        movement, speed, duration = rotate_right, motion_speed, 0.03
     elif (
         line_l2 == 0 and line_r1 == 1
     ):  # Left inner sensor on black, right inner sensor on white, rotate left
         decision = "6"
-        LAST_MOVE = "left"
-        movement, speed = rotate_left, int(motion_speed * 0.5)
+        movement, speed, duration = rotate_left, motion_speed, 0.03
     elif (
         line_l2 == 1 and line_r1 == 0
     ):  # Left inner sensor on white, right inner sensor on black, rotate right
         decision = "7"
-        LAST_MOVE = "right"
-        movement, speed = rotate_right, int(motion_speed * 0.5)
+        movement, speed, duration = rotate_right, motion_speed, 0.03
     elif line_l2 == 0 and line_r1 == 0:  # Both inner sensors on black, move forward
         decision = "8"
-        movement, speed = move_forward, int(motion_speed * 0.5)
+        movement, speed, duration = move_forward, motion_speed, 0.03
     else:
         decision = "Line lost"
         if LAST_MOVE == "left":
