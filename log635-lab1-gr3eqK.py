@@ -21,6 +21,7 @@ bot = Raspbot()
 def _init_systems():
     """Initialize the robot's systems."""
     bot.Ctrl_Ulatist_Switch(1) # Ultrasonic sensor
+    bot.Ctrl_Servo(2, 0)
     time.sleep(0.1)
 
 def _close_systems():
@@ -162,9 +163,9 @@ def take_photos(count=1, interval=0.5, directory="photos-eqK"):
 
     return files
 
-
 def follow_black_line(motion_speed: int = 15):
-    """Read the IR sensors and make one short line-following movement.
+    global LAST_MOVE
+    """Read the IR sensors and update the ongoing line-following movement.
 
     Register 0x0a contains four active-low sensor bits. X2, X1, X3, and X4
     correspond to the outer-left, inner-left, inner-right, and outer-right
@@ -196,7 +197,8 @@ def follow_black_line(motion_speed: int = 15):
         line_l1 == line_l2 == line_r1 == line_r2 == 0
     ):  # All sensors on black, T junction for start
         decision = "1"
-        movement, speed, duration = move_forward, motion_speed, 0.01
+        LAST_MOVE = "forward"
+        movement, speed = move_forward, motion_speed
     elif (
         line_l2 == 0 or line_l1 == 0
     ) and line_r2 == 0:  # Left sensors on black, right sensor on white, turn right
@@ -228,14 +230,20 @@ def follow_black_line(motion_speed: int = 15):
         movement, speed, duration = move_forward, motion_speed, 0.03
     else:
         decision = "Line lost"
-        movement = None
+        if LAST_MOVE == "left":
+            movement, speed = rotate_left, int(motion_speed * 0.5)
+        elif LAST_MOVE == "right":
+            movement, speed = rotate_right, int(motion_speed * 0.5)
+        else:
+            movement = None
 
     print(decision)
+    print(LAST_MOVE)
     print(line_l1, line_l2, line_r1, line_r2)
     if movement is None:
-        stop_robot(bot)
+        stop_robot()
     else:
-        movement(speed, duration)
+        movement(speed)
     time.sleep(0.01)
 
 def main():
@@ -248,11 +256,12 @@ def main():
             if distance > NEAR_DISTANCE:
                 continue
 
-            stop_robot(bot)
+            stop_robot()
             sound_buzzer(times=2)
 
             try:
                 photos = take_photos(count=1)
+                time.sleep(1)
                 if not photos:
                     print("Warning: obstacle photo could not be captured.")
             except RuntimeError as error:
